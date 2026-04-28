@@ -1,94 +1,69 @@
 import numpy as np
-from sklearn.datasets import load_iris
-from sklearn.decomposition import PCA
-import matplotlib.pyplot as plt
-
 
 def pca(X, n_dim):
     """
-    :param X: (n_samples, n_features(D))
+    :param X: (n_samples, n_features)
     :param n_dim: target dimensions
-    :return: (n_samples, n_dim)
     """
 
     n_samples, n_features = X.shape
-    X = X - np.mean(X, axis=0, keepdims=True)
-
+    Xc = X - np.mean(X, axis=0, keepdims=True)
     if n_features > n_samples:
-        N = n_samples
-        Ncov = np.dot(X, X.T)
-
-        Neigvals, Neigvecs = np.linalg.eig(Ncov)
-        idx = np.argsort(-Neigvals)[:n_dim]
-        Npicked_eigvals = Neigvals[idx]
-        Npicked_eigvecs = Neigvecs[:, idx]
-
-        picked_eigvecs = np.dot(X.T, Npicked_eigvecs)
-        picked_eigvecs = picked_eigvecs / (N * Npicked_eigvals.reshape(-1, n_dim)) ** 0.5
-
-        data_ndim = np.dot(X, picked_eigvecs)
+        Ncov = np.dot(Xc, np.transpose(Xc))
+        eigvals, eigvecs = np.linalg.eigh(Ncov)
+        idx = np.argsort(eigvals)[::-1]
+        eigvals = eigvals[idx]
+        eigvecs = eigvecs[:, idx]
+        eigvals = eigvals[:n_dim]
+        eigvecs = eigvecs[:, :n_dim]
+        W = np.dot(Xc.T, eigvecs) / np.sqrt(eigvals.reshape(1, -1) + np.finfo(float).eps)
     else:
-        cov = np.dot(X.T, X)
-
+        cov = np.dot(np.transpose(Xc), Xc)
         eigvals, eigvecs = np.linalg.eig(cov)
         idx = np.argsort(-eigvals)[:n_dim]
-
-        picked_eigvals = eigvals[idx]
-        picked_eigvecs = eigvecs[:, idx]
-
-        data_ndim = np.dot(X, picked_eigvecs)
-
-    return data_ndim
+        eigvecs = eigvecs[:, idx]
+        W = eigvecs[:, :n_dim]
+    return W
 
 def pca_energy(X, energy_ratio=0.98):
     """
     :param X: (n_samples, n_features(D))
     :param energy_ratio: float, default=0.98
-    :return: (n_samples, n_dim)
     """
-
+    X = np.asarray(X, dtype=float)
     n_samples, n_features = X.shape
-    X = X - np.mean(X, axis=0, keepdims=True)
-
+    Xc = X - np.mean(X, axis=0, keepdims=True)
     if n_features > n_samples:
-        N = n_samples
-        Ncov = np.dot(X, X.T)
-
-        Neigvals, Neigvecs = np.linalg.eig(Ncov)
-        idx = np.argsort(-Neigvals)
-        Npicked_eigvals = Neigvals[idx]
-        Npicked_eigvecs = Neigvecs[:, idx]
-
-        cumulative_energy = np.cumsum(Neigvals) / np.sum(Neigvals)
-        n_dim = np.searchsorted(cumulative_energy, energy_ratio) + 1
-
-        picked_eigvecs = np.dot(X.T, Npicked_eigvecs)
-        picked_eigvecs = picked_eigvecs / (N * Npicked_eigvals.reshape(-1, n_dim)) ** 0.5
-
-        data_ndim = np.dot(X, picked_eigvecs)
-
-    else:
-        cov = np.dot(X.T, X)
-
-        eigvals, eigvecs = np.linalg.eig(cov)
-        idx = np.argsort(-eigvals)
+        Ncov = np.dot(Xc, np.transpose(Xc))
+        eigvals, eigvecs = np.linalg.eigh(Ncov)
+        idx = np.argsort(eigvals)[::-1]
         eigvals = eigvals[idx]
         eigvecs = eigvecs[:, idx]
-
-        cumulative_energy = np.cumsum(eigvals) / np.sum(eigvals)
+        cumulative_energy = np.cumsum(eigvals) / (np.sum(eigvals) + np.finfo(float).eps)
         n_dim = np.searchsorted(cumulative_energy, energy_ratio) + 1
-
-        picked_eigvals = eigvals[:n_dim]
-        picked_eigvecs = eigvecs[:, n_dim]
-        data_ndim = np.dot(X, picked_eigvecs)
-
-    return data_ndim
+        eigvals_selected = eigvals[:n_dim]
+        eigvecs_selected = eigvecs[:, :n_dim]
+        W = np.dot(Xc.T, eigvecs_selected) / np.sqrt(eigvals_selected.reshape(1, -1) + np.finfo(float).eps)
+    else:
+        cov = np.dot(np.transpose(Xc), Xc)
+        eigvals, eigvecs = np.linalg.eigh(cov)
+        idx = np.argsort(eigvals)[::-1]
+        eigvals = eigvals[idx]
+        eigvecs = eigvecs[:, idx]
+        cumulative_energy = np.cumsum(eigvals) / (np.sum(eigvals) + np.finfo(float).eps)
+        n_dim = np.searchsorted(cumulative_energy, energy_ratio) + 1
+        W = eigvecs[:, :n_dim]
+    return W
 
 if __name__ == "__main__":
-    data = load_iris()
+    import matplotlib.pyplot as plt
+    from sklearn.datasets import load_digits
+    from sklearn.decomposition import PCA
+    data = load_digits()
     X = data.data
     Y = data.target
-    data_2d1 = pca(X, 2)
+    W = pca(X, 2)
+    data_2d1 = np.dot(X, W)
 
     plt.figure(figsize=(8,4))
     plt.subplot(121)
