@@ -7,6 +7,7 @@ def LDA(X, y, n_dim):
     :param n_dim: target dimensions
     :return: (n_samples, n_dim)
     """
+    X = np.asarray(X, dtype=float)
     classes = np.unique(y)
     n_classes = len(classes)
     n_features = X.shape[1]
