@@ -1,8 +1,4 @@
 import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.datasets import load_digits
-from sklearn.decomposition import PCA
-
 
 def rbf(dist, t=1.0):
     return np.exp(-(dist / t))
@@ -23,7 +19,6 @@ def cal_rbf_dist(X, n_neighbors=10, t=1.0):
         index_ = np.argsort(dist[i])[1:1 + n_neighbors]
         W[i, index_] = rbf_dist[i, index_]
         W[index_, i] = rbf_dist[index_, i]
-
     return W
 
 
@@ -33,43 +28,40 @@ def LPP(X, n_dim, n_neighbors=30, t=1.0):
     :param n_dim: target dimensions
     :param n_neighbors: k nearest neighbors
     :param t: parameter for rbf
-    :return: (n_samples, n_dim)
     """
-    n_samples = X.shape[0]
-
+    X = np.asarray(X, dtype=float)
     W = cal_rbf_dist(X, n_neighbors=n_neighbors, t=t)
     D = np.diag(np.sum(W, axis=1))
     L = D - W
-
     XDXT = np.dot(np.dot(X.T, D), X)
     XLXT = np.dot(np.dot(X.T, L), X)
-
     eigvals, eigvecs = np.linalg.eig(np.dot(np.linalg.pinv(XDXT), XLXT))
     eigvals = np.real(eigvals)
     eigvecs = np.real(eigvecs)
-
-    sort_index = np.argsort(eigvals)
-    eigvals = eigvals[sort_index]
-    eigvecs = eigvecs[:, sort_index]
-
+    idx = np.argsort(eigvals)
+    eigvals = eigvals[idx]
+    eigvecs = eigvecs[:, idx]
     j = 0
     while j < len(eigvals) and eigvals[j] < 1e-6:
         j += 1
-
-    picked_eigvecs = eigvecs[:, j:j + n_dim]
-    data_ndim = np.dot(X, picked_eigvecs)
-
-    return data_ndim
+    eigvecs = eigvecs[:, j:j + n_dim]
+    return eigvecs
 
 
 if __name__ == '__main__':
-    X = load_digits().data
-    y = load_digits().target
+    import matplotlib.pyplot as plt
+    from sklearn.datasets import load_digits
+    from sklearn.decomposition import PCA
+    data = load_digits()
+    X = data.data
+    y = data.target
 
     dist = cal_pairwise_dist(X)
     max_dist = np.max(dist)
 
-    data_2d1 = LPP(X, 2, n_neighbors=5, t=0.01 * max_dist)
+    W = LPP(X, 2, n_neighbors=5, t=0.01 * max_dist)
+
+    data_2d1 = np.dot(X, W)
     data_2d2 = PCA(n_components=2).fit_transform(X)
 
     plt.figure(figsize=(8, 4))
